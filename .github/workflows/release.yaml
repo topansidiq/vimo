@@ -1,0 +1,62 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag release (contoh: v2026.02.27)"
+        required: false
+        default: "v2026.02.27"
+      release_name:
+        description: "Nama release"
+        required: false
+        default: "First Release - 2026-02-27"
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release metadata
+        id: meta
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG_NAME="${GITHUB_REF_NAME}"
+            RELEASE_NAME="Release ${TAG_NAME}"
+          else
+            TAG_NAME="${{ inputs.tag }}"
+            RELEASE_NAME="${{ inputs.release_name }}"
+          fi
+
+          if [ -z "${TAG_NAME}" ]; then
+            TAG_NAME="v$(date +%Y.%m.%d)"
+          fi
+
+          if [ -z "${RELEASE_NAME}" ]; then
+            RELEASE_NAME="Release ${TAG_NAME}"
+          fi
+
+          echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
+          echo "release_name=${RELEASE_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag_name }}
+          name: ${{ steps.meta.outputs.release_name }}
+          generate_release_notes: true
+          target_commitish: ${{ github.sha }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
