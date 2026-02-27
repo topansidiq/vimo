@@ -1,0 +1,15 @@
+{
+  "host": "monitoring-api.company.local",
+  "port": 5000,
+  "gyro_warn": 1000,
+  "gyro_crit": 2000,
+  "accel_warn": 10000,
+  "accel_crit": 15000,
+  "buffer_size": 1000,
+  "poll_rate": 5,
+  "log_enabled": true,
+  "auto_reconnect": true,
+  "norm_range": 0,
+  "ai_enabled": true,
+  "ai_sensitivity": 3.0
+}

@@ -1,0 +1,15 @@
+# Root runtime artifacts
+.env
+connection.json
+storage/
+
+# Desktop build artifacts
+vimo/build/
+vimo/dist/
+vimo/.venv-build/
+vimo/.git.local_backup/
+server/.git.local_backup/
+installer/dist/
+
+# Server dependencies
+server/node_modules/

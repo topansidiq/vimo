@@ -1,0 +1,40 @@
+HOW TO INSTALL VIMO
+===================
+
+1) PRASYARAT
+- Windows 10/11 x64
+- Node.js LTS terpasang
+- MQTT broker aktif (default: Mosquitto di localhost:1883)
+
+2) CARA PALING CEPAT (PAKAI INSTALLER .EXE)
+- Jalankan: installer\dist\VimoSetup.exe (Run as Administrator)
+- Selesaikan wizard instalasi
+- Jalankan shortcut: "Vimo Bootstrap" (1x untuk siapkan .env dan storage)
+- Jalankan shortcut: "Vimo Server"
+- Jalankan shortcut: "Vimo"
+
+3) CARA DARI SOURCE (TANPA SETUP.EXE)
+- Dari root project, jalankan:
+  powershell -ExecutionPolicy Bypass -File .\setup.ps1 -Broker local -ForceEnv
+- Start server:
+  cd server
+  npm run start
+- Jalankan desktop app:
+  vimo\dist\Vimo.exe
+
+4) SETTING WAJIB DI DESKTOP APP
+- Buka Settings -> Server Connection
+- Host: 127.0.0.1 (atau IP server)
+- Port: sesuai APP_PORT di file .env (default 3001)
+- Klik Save Settings, lalu Connect to Server
+
+5) LOKASI FILE PENTING (ROOT)
+- .env
+- connection.json
+- storage\private\app.db
+- storage\logs\
+
+6) JIKA GAGAL KONEK
+- Cek server sudah jalan
+- Cek port APP_PORT tidak bentrok
+- Cek broker MQTT aktif dan topic sesuai di .env
