@@ -3,6 +3,20 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "bin": "index.js",
+  "pkg": {
+    "assets": [
+      "database/**/*",
+      "routes/**/*",
+      "middleware/**/*",
+      "config/**/*"
+    ],
+    "targets": [
+      "node20-win-x64"
+    ],
+    "outputPath": "dist"
+  },
+  
   "scripts": {
     "setup:env": "node scripts/setup-env.js",
     "setup:windows": "powershell -ExecutionPolicy Bypass -File scripts/install-windows.ps1",
@@ -10,6 +24,7 @@
     "dev": "node --watch index.js",
     "start": "node index.js",
     "build": "vite build",
+    "pkg": "pkg . --target node18-win-x64 --public --public-packages \"*\" --output ../vimo-server.exe",
     "preview": "vite preview"
   },
   "devDependencies": {
