@@ -117,6 +117,7 @@ Vimo/
 
 ## Dokumen Terkait
 
+- `docs/INSTALLATION.md` — alur instalasi & verifikasi server/desktop (v2)
 - `vimo/PRODUCTION.md`
 - `server/README.md`
 - `how_to_install.txt`
