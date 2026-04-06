@@ -121,4 +121,3 @@ Vimo/
 - `vimo/PRODUCTION.md`
 - `server/README.md`
 - `how_to_install.txt`
-- `issue.md` — roadmap pengembangan v2
