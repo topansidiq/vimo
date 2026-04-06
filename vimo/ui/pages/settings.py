@@ -56,7 +56,9 @@ class SettingsPage(QWidget):
         title = QLabel("Settings")
         title.setStyleSheet(f"color: {self.config.COLORS['text_primary']}; font-size: 18px; font-weight: bold;")
         layout.addWidget(title)
-        subtitle = QLabel("Configure server connection, alert thresholds, and display preferences")
+        subtitle = QLabel(
+            "Server connection, transport (HTTP / MQTT / WebSocket), alert thresholds, and display preferences"
+        )
         subtitle.setStyleSheet(f"color: {self.config.COLORS['text_muted']}; font-size: 10px;")
         layout.addWidget(subtitle)
 
@@ -75,6 +77,53 @@ class SettingsPage(QWidget):
 
         conn_form.addRow("Bridge Server Host:", self.host_input)
         conn_form.addRow("Bridge Server Port:", self.port_input)
+
+        self.transport_combo = QComboBox()
+        self.transport_combo.setFixedHeight(30)
+        for text, key in (
+            ("WebSocket (Socket.IO)", "websocket"),
+            ("MQTT (broker langsung)", "mqtt"),
+            ("HTTP (sinkron perangkat saja)", "http"),
+            ("Modbus TCP (rencana)", "modbus"),
+        ):
+            self.transport_combo.addItem(text, key)
+        c = self.config.COLORS
+        self.transport_combo.setStyleSheet(f"""
+            QComboBox {{
+                background: {c['bg_secondary']};
+                color: {c['text_primary']};
+                border: 1px solid {c['border']};
+                border-radius: 4px;
+                padding: 0 8px;
+                font-size: 11px;
+                min-width: 220px;
+            }}
+            QComboBox::drop-down {{ border: none; }}
+        """)
+        self.transport_combo.currentIndexChanged.connect(self._on_transport_changed)
+        conn_form.addRow("Transport data:", self.transport_combo)
+
+        self._mqtt_container = QWidget()
+        mqtt_form = QFormLayout(self._mqtt_container)
+        mqtt_form.setSpacing(10)
+        mqtt_form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.mqtt_host_input = self._make_input("127.0.0.1", tooltip="Host broker MQTT (mis. Mosquitto lokal)")
+        self.mqtt_port_input = self._make_input("1883", tooltip="Port broker (biasanya 1883)")
+        self.mqtt_port_input.setFixedWidth(120)
+        self.mqtt_pattern_input = self._make_input(
+            "vimo/devices/+/data",
+            tooltip="Wildcard subscribe; harus cocok dengan topik perangkat Anda",
+        )
+        mqtt_form.addRow("MQTT broker host:", self.mqtt_host_input)
+        mqtt_form.addRow("MQTT broker port:", self.mqtt_port_input)
+        mqtt_form.addRow("Subscribe pattern:", self.mqtt_pattern_input)
+        conn_form.addRow(self._mqtt_container)
+
+        self._transport_hint = QLabel("")
+        self._transport_hint.setWordWrap(True)
+        self._transport_hint.setStyleSheet(
+            f"color: {self.config.COLORS['text_muted']}; font-size: 10px; background: transparent;")
+        conn_form.addRow("", self._transport_hint)
 
         # Connection status indicator
         self._conn_status_lbl = QLabel("● Disconnected")
@@ -222,6 +271,13 @@ class SettingsPage(QWidget):
         cfg = connection_config.load()
         self.host_input.setText(str(cfg.get("host", "192.168.1.2")))
         self.port_input.setText(str(cfg.get("port", 5000)))
+        tr = cfg.get("transport", "websocket")
+        idx = self.transport_combo.findData(tr)
+        self.transport_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        self.mqtt_host_input.setText(str(cfg.get("mqtt_host", "127.0.0.1")))
+        self.mqtt_port_input.setText(str(cfg.get("mqtt_port", 1883)))
+        self.mqtt_pattern_input.setText(str(cfg.get("mqtt_topic_pattern", "vimo/devices/+/data")))
+        self._on_transport_changed()
         self.gyro_warn_spin.setValue(cfg.get("gyro_warn", 1000))
         self.gyro_crit_spin.setValue(cfg.get("gyro_crit", 2000))
         self.accel_warn_spin.setValue(cfg.get("accel_warn", 10000))
@@ -237,9 +293,14 @@ class SettingsPage(QWidget):
 
     def _collect_config(self) -> dict:
         """Read current form values into a config dict."""
+        pat = self.mqtt_pattern_input.text().strip() or "vimo/devices/+/data"
         return {
             "host":               self.host_input.text().strip(),
             "port":               self._parse_port(),
+            "transport":          self._current_transport(),
+            "mqtt_host":          self.mqtt_host_input.text().strip() or "127.0.0.1",
+            "mqtt_port":          self._parse_mqtt_port(),
+            "mqtt_topic_pattern": pat,
             "gyro_warn":          self.gyro_warn_spin.value(),
             "gyro_crit":          self.gyro_crit_spin.value(),
             "accel_warn":         self.accel_warn_spin.value(),
@@ -258,6 +319,29 @@ class SettingsPage(QWidget):
             return int(self.port_input.text().strip())
         except ValueError:
             return 5000
+
+    def _parse_mqtt_port(self) -> int:
+        try:
+            return int(self.mqtt_port_input.text().strip())
+        except ValueError:
+            return 1883
+
+    def _current_transport(self) -> str:
+        data = self.transport_combo.currentData()
+        return str(data) if data else "websocket"
+
+    @pyqtSlot()
+    def _on_transport_changed(self):
+        tr = self._current_transport()
+        self._mqtt_container.setVisible(tr == "mqtt")
+        if tr == "http":
+            self._transport_hint.setText(
+                "Mode HTTP hanya menyinkronkan daftar perangkat lewat REST; tidak ada aliran sensor real-time."
+            )
+        elif tr == "modbus":
+            self._transport_hint.setText("Modbus TCP direncanakan pada rilis berikutnya.")
+        else:
+            self._transport_hint.setText("")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Button handlers
@@ -284,6 +368,13 @@ class SettingsPage(QWidget):
 
     @pyqtSlot()
     def _on_connect(self):
+        if self._current_transport() == "modbus":
+            QMessageBox.information(
+                self,
+                "Vimo",
+                "Koneksi Modbus TCP belum tersedia. Pilih WebSocket, MQTT, atau HTTP.",
+            )
+            return
         cfg = self._collect_config()
         connection_config.save(cfg)  # auto-save before connecting
         self._flash_status(f"Connecting to {cfg['host']}:{cfg['port']} ...", success=True)

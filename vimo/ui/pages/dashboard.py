@@ -113,6 +113,14 @@ class DashboardPage(QWidget):
             stats_row.addWidget(card)
         layout.addLayout(stats_row)
 
+        layout.addWidget(SectionHeader("MAINTENANCE INSIGHTS"))
+        self._maintenance_label = QLabel("")
+        self._maintenance_label.setWordWrap(True)
+        self._maintenance_label.setStyleSheet(
+            f"color: {self.config.COLORS['text_secondary']}; font-size: 11px; background: transparent;"
+        )
+        layout.addWidget(self._maintenance_label)
+
         # ── Machine Status Cards (Container) ──────────────────────────────────
         layout.addWidget(SectionHeader("MACHINE STATUS"))
         self._machines_container = QWidget()
@@ -217,8 +225,25 @@ class DashboardPage(QWidget):
         self.data_manager.data_updated.connect(self._on_data_updated)
         self.data_manager.devices_changed.connect(self._rebuild_machines_ui)
         self.data_manager.alert_triggered.connect(self._on_alert)
-        self.data_manager.machine_status_changed.connect(lambda *_: self._update_machine_online_stat())
+        self.data_manager.machine_status_changed.connect(self._on_machine_status_for_dashboard)
         self.data_manager.devices_changed.connect(self._update_machine_online_stat)
+
+    @pyqtSlot()
+    def _on_machine_status_for_dashboard(self):
+        self._update_machine_online_stat()
+        self._update_maintenance_panel()
+
+    def _update_maintenance_panel(self):
+        insights = self.data_manager.get_maintenance_insights()
+        if not insights:
+            self._maintenance_label.setText("Tidak ada sinyal pemeliharaan prioritas saat ini.")
+            return
+        lines = []
+        for ins in insights:
+            pr = str(ins.get("priority", "")).upper()
+            name = ins.get("name") or ins.get("machine_id", "")
+            lines.append(f"[{pr}] {name}: {ins.get('summary', '')}")
+        self._maintenance_label.setText("\n".join(lines))
 
     def _rebuild_machines_ui(self):
         """Rebuild machine cards and chart tabs when devices are added/removed."""
@@ -347,6 +372,7 @@ class DashboardPage(QWidget):
         Render ulang chart — hanya aktif jika ada data baru (dirty flag)
         DAN jika chart sedang terlihat (isVisible) untuk optimasi performa.
         """
+        self._update_maintenance_panel()
         for charts in self._charts.values():
             for chart in charts:
                 # OPTIMASI: Lewati redraw Matplotlib yang mahal jika widget tidak terlihat
