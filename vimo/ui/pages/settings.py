@@ -336,10 +336,10 @@ class SettingsPage(QWidget):
         self._mqtt_container.setVisible(tr == "mqtt")
         if tr == "http":
             self._transport_hint.setText(
-                "Mode HTTP hanya menyinkronkan daftar perangkat lewat REST; tidak ada aliran sensor real-time."
+                "HTTP mode only synchronizes the device list via REST; there is no real-time sensor data stream."
             )
         elif tr == "modbus":
-            self._transport_hint.setText("Modbus TCP direncanakan pada rilis berikutnya.")
+            self._transport_hint.setText("Modbus TCP is planned for the next release.")
         else:
             self._transport_hint.setText("")
 
@@ -372,7 +372,7 @@ class SettingsPage(QWidget):
             QMessageBox.information(
                 self,
                 "Vimo",
-                "Koneksi Modbus TCP belum tersedia. Pilih WebSocket, MQTT, atau HTTP.",
+                "Modbus TCP connection is not available. Select WebSocket, MQTT, or HTTP.",
             )
             return
         cfg = self._collect_config()

@@ -85,12 +85,12 @@ class DashboardPage(QWidget):
         layout.setSpacing(14)
 
         # ── Judul ────────────────────────────────────────────────────────────
-        title = QLabel("Dashboard  —  Machine Overview")
+        title = QLabel("Dashboard")
         title.setStyleSheet(f"color:{self.config.COLORS['text_primary']};"
                             "font-size:18px;font-weight:bold;background:transparent;")
         layout.addWidget(title)
 
-        subtitle = QLabel("Real-time monitoring · MPU6050 · Kalman Filter aktif")
+        subtitle = QLabel("Real-time monitoring")
         subtitle.setStyleSheet(f"color:{self.config.COLORS['text_muted']};"
                                "font-size:10px;background:transparent;")
         layout.addWidget(subtitle)
@@ -236,7 +236,7 @@ class DashboardPage(QWidget):
     def _update_maintenance_panel(self):
         insights = self.data_manager.get_maintenance_insights()
         if not insights:
-            self._maintenance_label.setText("Tidak ada sinyal pemeliharaan prioritas saat ini.")
+            self._maintenance_label.setText("There are currently no priority maintenance signals.")
             return
         lines = []
         for ins in insights:
@@ -415,10 +415,10 @@ class DashboardPage(QWidget):
             
             workbook.close()
             LOGGER.info("Excel exported to %s", filename)
-            QMessageBox.information(self, "Export Excel", f"Excel berhasil diexport:\n{filename}")
+            QMessageBox.information(self, "Export Excel", f"Successfully exported Excel:\n{filename}")
         except Exception as e:
             LOGGER.exception("Excel export failed: %s", e)
-            QMessageBox.warning(self, "Export Excel", f"Gagal export Excel:\n{e}")
+            QMessageBox.warning(self, "Export Excel", f"Failed to export Excel:\n{e}")
 
     def _export_pdf(self):
         """Export charts to PDF using matplotlib's PdfPages."""
@@ -435,10 +435,10 @@ class DashboardPage(QWidget):
                         # Add metadata or title to the figure temporarily if needed
                         pdf.savefig(chart.figure)
             LOGGER.info("PDF exported to %s", filename)
-            QMessageBox.information(self, "Export PDF", f"PDF berhasil diexport:\n{filename}")
+            QMessageBox.information(self, "Export PDF", f"Successfully exported PDF:\n{filename}")
         except Exception as e:
             LOGGER.exception("PDF export failed: %s", e)
-            QMessageBox.warning(self, "Export PDF", f"Gagal export PDF:\n{e}")
+            QMessageBox.warning(self, "Export PDF", f"Failed to export PDF:\n{e}")
 
     def _screen_capture(self):
         filename = f"Vimo_Screenshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
@@ -446,7 +446,7 @@ class DashboardPage(QWidget):
             pixmap = self.grab()
             pixmap.save(filename)
             LOGGER.info("Screenshot saved to %s", filename)
-            QMessageBox.information(self, "Capture View", f"Screenshot tersimpan:\n{filename}")
+            QMessageBox.information(self, "Capture View", f"Screenshot saved:\n{filename}")
         except Exception as e:
             LOGGER.exception("Screenshot failed: %s", e)
-            QMessageBox.warning(self, "Capture View", f"Gagal menyimpan screenshot:\n{e}")
+            QMessageBox.warning(self, "Capture View", f"Failed to save screenshot:\n{e}")
