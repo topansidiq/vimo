@@ -107,6 +107,27 @@ app.use(middleware.requestLogger(logger));
 app.use(e.json());
 app.use('/api/devices', deviceRoutes);
 
+app.get('/health', (req, res) => {
+    return res.json({ status: 'ok', service: 'vimo-server' });
+});
+
+app.get('/ready', (req, res) => {
+    let databaseOk = false;
+    try {
+        databaseSqlite.prepare('SELECT 1 AS ok').get();
+        databaseOk = true;
+    } catch (err) {
+        logger.warn('Readiness database check failed', { message: err.message });
+    }
+    const mqttReady = mqttStatus === 'connected';
+    const ready = databaseOk && mqttReady;
+    return res.status(ready ? 200 : 503).json({
+        ready,
+        database: databaseOk,
+        mqtt: mqttStatus,
+    });
+});
+
 app.get('/', (req, res) => {
     return res.json({
         status: 'ok',
