@@ -2,6 +2,8 @@
 Application configuration including theme, colors, and stylesheet.
 """
 
+APP_VERSION = "2.0.0"
+
 
 class AppConfig:
     """Centralized application configuration."""
@@ -63,7 +65,7 @@ class AppConfig:
         "min_height": 700,
         "default_width": 1400,
         "default_height": 850,
-        "title": "Machine Monitor v1.0",
+        "title": f"Machine Monitor v{APP_VERSION}",
     }
 
     def get_stylesheet(self) -> str:
