@@ -1,5 +1,7 @@
 # Vimo
 
+**Versi rilis: 2.0.0**
+
 Vimo adalah sistem monitoring mesin berbasis sensor (MPU6050) yang terdiri dari:
 
 - Desktop app (`vimo/`) berbasis Python + PyQt5 untuk dashboard, activity, log, dan pengaturan koneksi.

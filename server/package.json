@@ -1,7 +1,7 @@
 {
   "name": "server",
   "private": true,
-  "version": "0.0.0",
+  "version": "2.0.0",
   "type": "module",
   "bin": "index.js",
   "pkg": {
@@ -22,6 +22,7 @@
     "setup:windows": "powershell -ExecutionPolicy Bypass -File scripts/install-windows.ps1",
     "setup:linux": "bash ./scripts/install-linux.sh",
     "dev": "node --watch index.js",
+    "simulate": "node simulate_mqtt.js",
     "start": "node index.js",
     "build": "vite build",
     "pkg": "pkg . --target node18-win-x64 --public --public-packages \"*\" --output ../vimo-server.exe",

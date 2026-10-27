@@ -44,9 +44,9 @@ const client = mqttManager.client();
 const mqttInfo = mqttManager.info();
 
 const devices = [
-    'DEV-999',
-    'DEV-888',
-    'DEV-777'
+    'Machine 001',
+    'Machine 002',
+    'Machine 003'
 ];
 
 client.on('connect', () => {
@@ -71,7 +71,7 @@ client.on('connect', () => {
 
             client.publish(topic, JSON.stringify(payload), { qos: 0 });
             // console.log(`Published to ${topic}`);
-        }, 50);
+        }, 300);
 
     });
 });

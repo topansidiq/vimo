@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import Qt
 from ui.main_window import MainWindow
-from core.app_config import AppConfig
+from core.app_config import APP_VERSION, AppConfig
 from core.logging_setup import install_exception_hook, setup_logging
 
 
@@ -30,7 +30,7 @@ def main():
 
     app = QApplication(sys.argv)
     app.setApplicationName("Vimo")
-    app.setApplicationVersion("1.0.0")
+    app.setApplicationVersion(APP_VERSION)
     app.setOrganizationName("Hydtech")
 
     # Load and apply stylesheet

@@ -292,9 +292,10 @@ class MainWindow(QMainWindow):
 
     def _on_about(self):
         from PyQt5.QtWidgets import QMessageBox
+        from core.app_config import APP_VERSION
         QMessageBox.about(
             self, "About Machine Monitor",
-            "<b>Machine Monitor v1.0</b><br><br>"
+            f"<b>Machine Monitor v{APP_VERSION}</b><br><br>"
             "Enterprise Real-Time Machine Monitoring<br>"
             "MPU6050 Accelerometer / Gyroscope<br><br>"
             "Built with Python + PyQt5"
