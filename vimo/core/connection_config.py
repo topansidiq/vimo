@@ -17,9 +17,15 @@ LOGGER = logging.getLogger(__name__)
 _LEGACY_CONFIG_PATH = Path(__file__).with_name("connection.json")
 _CONFIG_PATH = get_config_path("connection.json")
 
+_ALLOWED_TRANSPORT = frozenset({"websocket", "mqtt", "http", "modbus"})
+
 _DEFAULTS = {
     "host": "127.0.0.1",
     "port": 5000,
+    "transport": "websocket",
+    "mqtt_host": "127.0.0.1",
+    "mqtt_port": 1883,
+    "mqtt_topic_pattern": "vimo/devices/+/data",
     # Alert thresholds
     "gyro_warn": 1000,
     "gyro_crit": 2000,
@@ -67,9 +73,27 @@ def _normalize(cfg: Dict[str, Any]) -> Dict[str, Any]:
     if not host:
         host = _DEFAULTS["host"]
 
+    transport = str(merged.get("transport") or _DEFAULTS["transport"]).strip().lower()
+    if transport in ("socketio", "ws"):
+        transport = "websocket"
+    if transport not in _ALLOWED_TRANSPORT:
+        transport = _DEFAULTS["transport"]
+
+    mqtt_host = str(merged.get("mqtt_host") or _DEFAULTS["mqtt_host"]).strip()
+    if not mqtt_host:
+        mqtt_host = _DEFAULTS["mqtt_host"]
+
+    pattern = str(merged.get("mqtt_topic_pattern") or _DEFAULTS["mqtt_topic_pattern"]).strip()
+    if not pattern:
+        pattern = _DEFAULTS["mqtt_topic_pattern"]
+
     return {
         "host": host,
         "port": _safe_int(merged.get("port"), _DEFAULTS["port"], 1, 65535),
+        "transport": transport,
+        "mqtt_host": mqtt_host,
+        "mqtt_port": _safe_int(merged.get("mqtt_port"), _DEFAULTS["mqtt_port"], 1, 65535),
+        "mqtt_topic_pattern": pattern,
         "gyro_warn": _safe_int(merged.get("gyro_warn"), _DEFAULTS["gyro_warn"], 0, 100000),
         "gyro_crit": _safe_int(merged.get("gyro_crit"), _DEFAULTS["gyro_crit"], 0, 100000),
         "accel_warn": _safe_int(merged.get("accel_warn"), _DEFAULTS["accel_warn"], 0, 100000),

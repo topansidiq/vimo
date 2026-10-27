@@ -85,12 +85,12 @@ class DashboardPage(QWidget):
         layout.setSpacing(14)
 
         # ── Judul ────────────────────────────────────────────────────────────
-        title = QLabel("Dashboard  —  Machine Overview")
+        title = QLabel("Dashboard")
         title.setStyleSheet(f"color:{self.config.COLORS['text_primary']};"
                             "font-size:18px;font-weight:bold;background:transparent;")
         layout.addWidget(title)
 
-        subtitle = QLabel("Real-time monitoring · MPU6050 · Kalman Filter aktif")
+        subtitle = QLabel("Real-time monitoring")
         subtitle.setStyleSheet(f"color:{self.config.COLORS['text_muted']};"
                                "font-size:10px;background:transparent;")
         layout.addWidget(subtitle)
@@ -112,6 +112,14 @@ class DashboardPage(QWidget):
             self._stat_cards[key] = card
             stats_row.addWidget(card)
         layout.addLayout(stats_row)
+
+        layout.addWidget(SectionHeader("MAINTENANCE INSIGHTS"))
+        self._maintenance_label = QLabel("")
+        self._maintenance_label.setWordWrap(True)
+        self._maintenance_label.setStyleSheet(
+            f"color: {self.config.COLORS['text_secondary']}; font-size: 11px; background: transparent;"
+        )
+        layout.addWidget(self._maintenance_label)
 
         # ── Machine Status Cards (Container) ──────────────────────────────────
         layout.addWidget(SectionHeader("MACHINE STATUS"))
@@ -217,8 +225,25 @@ class DashboardPage(QWidget):
         self.data_manager.data_updated.connect(self._on_data_updated)
         self.data_manager.devices_changed.connect(self._rebuild_machines_ui)
         self.data_manager.alert_triggered.connect(self._on_alert)
-        self.data_manager.machine_status_changed.connect(lambda *_: self._update_machine_online_stat())
+        self.data_manager.machine_status_changed.connect(self._on_machine_status_for_dashboard)
         self.data_manager.devices_changed.connect(self._update_machine_online_stat)
+
+    @pyqtSlot()
+    def _on_machine_status_for_dashboard(self):
+        self._update_machine_online_stat()
+        self._update_maintenance_panel()
+
+    def _update_maintenance_panel(self):
+        insights = self.data_manager.get_maintenance_insights()
+        if not insights:
+            self._maintenance_label.setText("There are currently no priority maintenance signals.")
+            return
+        lines = []
+        for ins in insights:
+            pr = str(ins.get("priority", "")).upper()
+            name = ins.get("name") or ins.get("machine_id", "")
+            lines.append(f"[{pr}] {name}: {ins.get('summary', '')}")
+        self._maintenance_label.setText("\n".join(lines))
 
     def _rebuild_machines_ui(self):
         """Rebuild machine cards and chart tabs when devices are added/removed."""
@@ -347,6 +372,7 @@ class DashboardPage(QWidget):
         Render ulang chart — hanya aktif jika ada data baru (dirty flag)
         DAN jika chart sedang terlihat (isVisible) untuk optimasi performa.
         """
+        self._update_maintenance_panel()
         for charts in self._charts.values():
             for chart in charts:
                 # OPTIMASI: Lewati redraw Matplotlib yang mahal jika widget tidak terlihat
@@ -389,10 +415,10 @@ class DashboardPage(QWidget):
             
             workbook.close()
             LOGGER.info("Excel exported to %s", filename)
-            QMessageBox.information(self, "Export Excel", f"Excel berhasil diexport:\n{filename}")
+            QMessageBox.information(self, "Export Excel", f"Successfully exported Excel:\n{filename}")
         except Exception as e:
             LOGGER.exception("Excel export failed: %s", e)
-            QMessageBox.warning(self, "Export Excel", f"Gagal export Excel:\n{e}")
+            QMessageBox.warning(self, "Export Excel", f"Failed to export Excel:\n{e}")
 
     def _export_pdf(self):
         """Export charts to PDF using matplotlib's PdfPages."""
@@ -409,10 +435,10 @@ class DashboardPage(QWidget):
                         # Add metadata or title to the figure temporarily if needed
                         pdf.savefig(chart.figure)
             LOGGER.info("PDF exported to %s", filename)
-            QMessageBox.information(self, "Export PDF", f"PDF berhasil diexport:\n{filename}")
+            QMessageBox.information(self, "Export PDF", f"Successfully exported PDF:\n{filename}")
         except Exception as e:
             LOGGER.exception("PDF export failed: %s", e)
-            QMessageBox.warning(self, "Export PDF", f"Gagal export PDF:\n{e}")
+            QMessageBox.warning(self, "Export PDF", f"Failed to export PDF:\n{e}")
 
     def _screen_capture(self):
         filename = f"Vimo_Screenshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
@@ -420,7 +446,7 @@ class DashboardPage(QWidget):
             pixmap = self.grab()
             pixmap.save(filename)
             LOGGER.info("Screenshot saved to %s", filename)
-            QMessageBox.information(self, "Capture View", f"Screenshot tersimpan:\n{filename}")
+            QMessageBox.information(self, "Capture View", f"Screenshot saved:\n{filename}")
         except Exception as e:
             LOGGER.exception("Screenshot failed: %s", e)
-            QMessageBox.warning(self, "Capture View", f"Gagal menyimpan screenshot:\n{e}")
+            QMessageBox.warning(self, "Capture View", f"Failed to save screenshot:\n{e}")

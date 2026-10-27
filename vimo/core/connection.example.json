@@ -1,6 +1,10 @@
 {
   "host": "monitoring-api.company.local",
   "port": 5000,
+  "transport": "websocket",
+  "mqtt_host": "127.0.0.1",
+  "mqtt_port": 1883,
+  "mqtt_topic_pattern": "vimo/devices/+/data",
   "gyro_warn": 1000,
   "gyro_crit": 2000,
   "accel_warn": 10000,

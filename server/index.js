@@ -1,4 +1,5 @@
 import "./config/runtime-paths.js";
+import { createRequire } from "node:module";
 import e from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
@@ -7,6 +8,9 @@ import { middleware } from "./middleware/index.js";
 import deviceRoutes from "./routes/device.js";
 import databaseSqlite from "./database/sqlite.js";
 import { MQTT } from "./config/mqtt.js";
+
+const require = createRequire(import.meta.url);
+const { version: SERVER_VERSION } = require("./package.json");
 
 const app = e();
 const httpServer = createServer(app);
@@ -107,9 +111,32 @@ app.use(middleware.requestLogger(logger));
 app.use(e.json());
 app.use('/api/devices', deviceRoutes);
 
+app.get('/health', (req, res) => {
+    return res.json({ status: 'ok', service: 'vimo-server', version: SERVER_VERSION });
+});
+
+app.get('/ready', (req, res) => {
+    let databaseOk = false;
+    try {
+        databaseSqlite.prepare('SELECT 1 AS ok').get();
+        databaseOk = true;
+    } catch (err) {
+        logger.warn('Readiness database check failed', { message: err.message });
+    }
+    const mqttReady = mqttStatus === 'connected';
+    const ready = databaseOk && mqttReady;
+    return res.status(ready ? 200 : 503).json({
+        ready,
+        database: databaseOk,
+        mqtt: mqttStatus,
+        version: SERVER_VERSION,
+    });
+});
+
 app.get('/', (req, res) => {
     return res.json({
         status: 'ok',
+        version: SERVER_VERSION,
         websocket: 'active',
         mqtt: mqttStatus,
         mqtt_provider: mqttInfo.provider,

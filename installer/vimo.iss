@@ -7,7 +7,7 @@
 #endif
 
 #define AppName "Vimo"
-#define AppVersion "1.0.0"
+#define AppVersion "2.0.0"
 #define AppPublisher "Vimo"
 #define AppExeName "Vimo.exe"
 

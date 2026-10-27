@@ -76,13 +76,23 @@ node scripts/setup-env.js --broker=local --force
 npm run start
 ```
 
-Health check root endpoint:
+### Ringkas status (root)
 
 ```bash
 curl http://localhost:3001/
 ```
 
-Response akan menampilkan status MQTT aktual, provider, broker, dan topic subscription.
+Response mencakup status MQTT, provider, broker, dan topic subscription.
+
+### Liveness & readiness (v2)
+
+- **`GET /health`** — proses hidup; cocok untuk load balancer sederhana.
+- **`GET /ready`** — HTTP **200** jika database dapat di-query dan MQTT **connected**; jika tidak, **503** dengan `{ ready, database, mqtt }`.
+
+```bash
+curl -s http://localhost:3001/health
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/ready
+```
 
 ## Lokasi runtime
 

@@ -5,8 +5,6 @@ export class DeviceController {
     static async index(req, res) {
         const devices = DeviceService.getAll();
 
-        if (devices.length === 0) return Response.notFound(res);
-
         return Response.ok(res, devices);
     }
     static async show(req, res) {

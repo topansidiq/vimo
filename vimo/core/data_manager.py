@@ -20,6 +20,7 @@ from core.mqtt_client import MQTTClient
 from core.socketio_client import SocketIOClient
 from core.models import AssetRecord, DeviceRecord, MachineState, SensorReading
 from core.server_api_client import ServerAPIClient
+from core.maintenance_hints import build_insights
 
 LOGGER = logging.getLogger(__name__)
 
@@ -100,6 +101,7 @@ class DataManager(QObject):
         self._mqtt_client: Optional[MQTTClient] = None
         self._sio_client: Optional[SocketIOClient] = None
         self._server_client: Optional[ServerAPIClient] = None
+        self._http_poll_timer: Optional[QTimer] = None
         self._topic_to_device: Dict[str, str] = {}
 
         self._runtime_cfg: Dict[str, Any] = connection_config.load()
@@ -470,43 +472,120 @@ class DataManager(QObject):
     # ------------------------------------------------------------------
 
     def connect_server(self, cfg: dict = None):
-        """Connect to server: discover devices via HTTP, then ingest via SocketIO (WS)."""
+        """Connect: REST device sync, then transport-specific live path (WebSocket, MQTT, or HTTP-only sync)."""
         cfg = self.reload_runtime_config(cfg)
 
         self.disconnect_server()
-        server_url = connection_config.get_server_url(cfg)
+        transport = str(cfg.get("transport") or "websocket").lower()
+        if transport == "modbus":
+            self._add_log(
+                "ERROR",
+                "System",
+                "Modbus TCP belum didukung; pilih WebSocket, MQTT, atau HTTP di pengaturan.",
+            )
+            return
 
+        server_url = connection_config.get_server_url(cfg)
         auto_rc = bool(cfg.get("auto_reconnect", True))
 
-        # 1. Fetch devices via REST API first to sync metadata
         self._server_client = ServerAPIClient(server_url)
+        fetch_error: Optional[Exception] = None
         try:
             remote_devices = self._server_client.fetch_devices()
             self._sync_devices_from_server(remote_devices)
             LOGGER.info("Received %s devices from API", len(remote_devices))
         except Exception as exc:
+            fetch_error = exc
             self._add_log("ERROR", "System", f"Failed to fetch devices: {exc}")
-            # we continue anyway, might have local devices already
 
-        # 2. Connect via SocketIO for real-time stream
+        if transport == "http":
+            if fetch_error is not None:
+                self._server_client = None
+                return
+            self._start_http_poll_only()
+            return
+
+        if transport == "mqtt":
+            self._connect_mqtt_ingest(cfg, auto_rc)
+            return
+
+        # websocket (default): Socket.IO live stream
         self._sio_client = SocketIOClient(
             server_url=server_url,
             on_data=self.ingest_dict,
             on_connect=self._on_server_connected,
             on_disconnect=self._on_server_disconnected,
             machine_id_field="device_id",
-            auto_reconnect=auto_rc
+            auto_reconnect=auto_rc,
         )
         self._sio_client.start()
 
         self._add_log(
             "INFO",
             "System",
-            f"Connecting to Server (SocketIO) at {server_url}",
+            f"Connecting to Server (Socket.IO / WebSocket) at {server_url}",
         )
+
+    def _connect_mqtt_ingest(self, cfg: dict, auto_rc: bool) -> None:
+        pattern = str(cfg.get("mqtt_topic_pattern") or "vimo/devices/+/data").strip() or "vimo/devices/+/data"
+        host = str(cfg.get("mqtt_host") or "127.0.0.1").strip() or "127.0.0.1"
+        try:
+            port = int(cfg.get("mqtt_port", 1883))
+        except (TypeError, ValueError):
+            port = 1883
+        port = max(1, min(65535, port))
+
+        self._mqtt_client = MQTTClient(
+            host=host,
+            port=port,
+            on_data=self._on_mqtt_data,
+            on_connect=self._on_server_connected,
+            on_disconnect=self._on_server_disconnected,
+            auto_reconnect=auto_rc,
+        )
+        self._mqtt_client.set_topics([pattern])
+        self._mqtt_client.start()
+        self._add_log(
+            "INFO",
+            "System",
+            f"Subscribing MQTT at {host}:{port} pattern={pattern}",
+        )
+
+    def _start_http_poll_only(self) -> None:
+        """Periodic REST device sync only (no live sensor stream)."""
+        self._http_poll_timer = QTimer(self)
+        self._http_poll_timer.timeout.connect(self._http_poll_tick)
+        self._http_poll_timer.start(5000)
+        self._is_connected = True
+        self.connection_status_changed.emit(True)
+        self._add_log(
+            "INFO",
+            "System",
+            "Mode HTTP: sinkron daftar perangkat aktif (tanpa streaming sensor live).",
+        )
+
+    def _http_poll_tick(self) -> None:
+        if not self._server_client:
+            return
+        try:
+            remote_devices = self._server_client.fetch_devices()
+            self._sync_devices_from_server(remote_devices)
+            if not self._is_connected:
+                self._is_connected = True
+                self.connection_status_changed.emit(True)
+        except Exception as exc:
+            self._add_log("WARN", "System", f"HTTP sync gagal: {exc}")
+            if self._is_connected:
+                self._is_connected = False
+                self.connection_status_changed.emit(False)
 
     def disconnect_server(self):
         """Disconnect from server."""
+        if self._http_poll_timer is not None:
+            self._http_poll_timer.stop()
+            self._http_poll_timer.deleteLater()
+            self._http_poll_timer = None
+
         if self._mqtt_client:
             self._mqtt_client.stop()
             self._mqtt_client = None
@@ -523,6 +602,10 @@ class DataManager(QObject):
         if was_connected:
             self.connection_status_changed.emit(False)
             self._add_log("INFO", "System", "Disconnected from server")
+
+    def get_maintenance_insights(self) -> List[dict]:
+        """Rule-based maintenance hints for dashboard (v2)."""
+        return [i.to_dict() for i in build_insights(self.get_all_machines())]
 
     def _on_server_connected(self):
         self._is_connected = True
@@ -946,25 +1029,38 @@ class DataManager(QObject):
         """Create a mapping of MQTT topics to local device IDs."""
         mapping = {}
         for dev in devices:
-            device_id = dev.get("device_id")
+            device_id = dev.get("device_id") or dev.get("id")
             if not device_id:
                 continue
-            # Use custom topic if provided, else default to vimo/machine/{id}
-            topic = dev.get("mqtt_topic") or f"vimo/machine/{device_id}"
+            device_id = str(device_id).strip()
+            topic = dev.get("mqtt_topic") or f"vimo/devices/{device_id}/data"
             mapping[topic] = device_id
         return mapping
 
+    @staticmethod
+    def _device_id_from_mqtt_topic(topic: str) -> Optional[str]:
+        if not topic:
+            return None
+        parts = [p for p in topic.split("/") if p]
+        if len(parts) >= 4 and parts[0] == "vimo" and parts[1] == "devices" and parts[-1] == "data":
+            return parts[2]
+        if len(parts) >= 3 and parts[0] == "vimo" and parts[1] == "machine":
+            return parts[2]
+        return None
+
     def _resolve_machine_id(self, topic: str, data: dict) -> Optional[str]:
         """Resolve which machine_id this data belongs to."""
-        # Try mapped topic first
         if topic in self._topic_to_device:
             return self._topic_to_device[topic]
-        
-        # Then check for explicit field in payload
+
+        from_topic = self._device_id_from_mqtt_topic(topic)
+        if from_topic:
+            return from_topic
+
         mid = data.get("machine_id") or data.get("device_id")
         if mid:
             return str(mid).strip()
-            
+
         return None
 
     def _sorted_devices(self) -> List[DeviceRecord]:
