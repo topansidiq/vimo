@@ -63,7 +63,7 @@ class ServerAPIClient:
             # 2. Known common keys
             for key in ("devices", "data", "items", "results", "result", "payload", "rows"):
                 value = payload.get(key)
-                if isinstance(value, list) and len(value) > 0 and isinstance(value[0], dict):
+                if isinstance(value, list):
                     return [row for row in value if isinstance(row, dict)]
 
             # 3. Aggressive search: look for any list containing dicts
